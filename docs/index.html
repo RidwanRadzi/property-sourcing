@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Sourcing — Developer Unit Leads</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-border: #272b38;
+    --text: #e8eaf0;
+    --text-dim: #9aa0b4;
+    --accent: #5b9dff;
+    --accent-dim: #2d3a52;
+    --tag-pg: #5b9dff;
+    --tag-nuprop: #4fd1a5;
+    --tag-iproperty: #ffb454;
+    --tag-web: #c792ea;
+    --good: #4fd1a5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 28px 20px 18px;
+    border-bottom: 1px solid var(--panel-border);
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; }
+  .subtitle { color: var(--text-dim); font-size: 14px; margin: 0; }
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .stat-pill {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .stat-pill b { color: var(--text); font-size: 15px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding: 10px 0;
+    z-index: 5;
+  }
+  input[type=search] {
+    flex: 1;
+    min-width: 200px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  select {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .card-grid { display: grid; gap: 12px; }
+  .lead-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .lead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .lead-title { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .lead-title a { color: var(--text); text-decoration: none; }
+  .lead-title a:hover { color: var(--accent); text-decoration: underline; }
+  .lead-meta { color: var(--text-dim); font-size: 13px; margin: 0; }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .tag-source-propertyguru { background: rgba(91,157,255,0.15); color: var(--tag-pg); }
+  .tag-source-nuprop { background: rgba(79,209,165,0.15); color: var(--tag-nuprop); }
+  .tag-source-iproperty { background: rgba(255,180,84,0.15); color: var(--tag-iproperty); }
+  .tag-source-web_search { background: rgba(199,146,234,0.15); color: var(--tag-web); }
+  .tag-signal { background: var(--accent-dim); color: var(--text-dim); }
+  .price { color: var(--good); font-weight: 600; font-size: 13px; }
+  .snippet { color: var(--text-dim); font-size: 13px; margin-top: 8px; line-height: 1.4; }
+  .empty-state { text-align: center; color: var(--text-dim); padding: 60px 20px; }
+  footer { text-align: center; color: var(--text-dim); font-size: 12px; padding: 30px 20px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Property Sourcing</h1>
+  <p class="subtitle">Malaysian projects/developments flagged as still holding unsold developer units — scraped from PropertyGuru, NuProp, iProperty, and web search.</p>
+  <div class="stats" id="stats"></div>
+</header>
+
+<main>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Search project, city, developer...">
+    <select id="sourceFilter"><option value="">All sources</option></select>
+    <select id="signalFilter"><option value="">All signal types</option></select>
+  </div>
+  <div class="card-grid" id="cards"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">No leads match your filters.</div>
+</main>
+
+<footer>
+  Data refreshed by running <code>run_all.py</code> and pushing <code>docs/data/leads.json</code>. Not financial or legal advice — verify every lead directly.<br>
+  <a href="https://github.com/RidwanRadzi/property-sourcing">Source on GitHub</a>
+</footer>
+
+<script>
+const SOURCE_LABELS = {
+  propertyguru: 'PropertyGuru',
+  nuprop: 'NuProp',
+  iproperty: 'iProperty',
+  web_search: 'Web Search',
+};
+const SIGNAL_LABELS = {
+  developer_listed_project: 'Developer-listed project',
+  keyword_match: 'Keyword match',
+  new_launch_unsold: 'New launch (unsold)',
+};
+
+let allLeads = [];
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch { return iso; }
+}
+
+function render() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const src = document.getElementById('sourceFilter').value;
+  const sig = document.getElementById('signalFilter').value;
+
+  const filtered = allLeads.filter(l => {
+    if (src && l.source !== src) return false;
+    if (sig && !l.signal_type.split('+').includes(sig)) return false;
+    if (q) {
+      const hay = [l.project, l.city, l.address, l.developer, l.snippet].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const grid = document.getElementById('cards');
+  const empty = document.getElementById('emptyState');
+  grid.innerHTML = '';
+  empty.style.display = filtered.length ? 'none' : 'block';
+
+  for (const l of filtered) {
+    const card = document.createElement('div');
+    card.className = 'lead-card';
+    const signals = l.signal_type.split('+').map(s =>
+      `<span class="tag tag-signal">${SIGNAL_LABELS[s] || s}</span>`
+    ).join('');
+    card.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <p class="lead-title">${l.url ? `<a href="${l.url}" target="_blank" rel="noopener">${esc(l.project)}</a>` : esc(l.project)}</p>
+          <p class="lead-meta">${esc(l.city || '')}${l.address ? ' · ' + esc(l.address) : ''}${l.developer ? ' · ' + esc(l.developer) : ''}</p>
+        </div>
+        ${l.price ? `<span class="price">${esc(l.price)}</span>` : ''}
+      </div>
+      <div class="tag-row" style="margin-top:10px;">
+        <span class="tag tag-source-${l.source}">${SOURCE_LABELS[l.source] || l.source}</span>
+        ${signals}
+      </div>
+      ${l.snippet ? `<p class="snippet">${esc(l.snippet)}</p>` : ''}
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function populateFilters(leads) {
+  const sourceSel = document.getElementById('sourceFilter');
+  const signalSel = document.getElementById('signalFilter');
+  const sources = [...new Set(leads.map(l => l.source))].sort();
+  const signals = [...new Set(leads.flatMap(l => l.signal_type.split('+')))].sort();
+  for (const s of sources) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = SOURCE_LABELS[s] || s;
+    sourceSel.appendChild(opt);
+  }
+  for (const s of signals) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = SIGNAL_LABELS[s] || s;
+    signalSel.appendChild(opt);
+  }
+}
+
+async function init() {
+  const res = await fetch('./data/leads.json');
+  const data = await res.json();
+  allLeads = data.leads || [];
+
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <div class="stat-pill"><b>${data.total}</b> total leads</div>
+    ${Object.entries(data.by_source || {}).map(([src, n]) =>
+      `<div class="stat-pill"><b>${n}</b> ${SOURCE_LABELS[src] || src}</div>`
+    ).join('')}
+    <div class="stat-pill">updated <b>${fmtDate(data.generated_at)}</b></div>
+  `;
+
+  populateFilters(allLeads);
+  render();
+
+  document.getElementById('search').addEventListener('input', render);
+  document.getElementById('sourceFilter').addEventListener('change', render);
+  document.getElementById('signalFilter').addEventListener('change', render);
+}
+
+init().catch(err => {
+  document.getElementById('cards').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('emptyState').textContent = 'Could not load leads.json — ' + err;
+});
+</script>
+
+</body>
+</html>
